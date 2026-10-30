@@ -25,8 +25,8 @@ jobs:
           days-before-issue-close: 21
           stale-pr-label: stale
           stale-issue-label: stale
-          exempt-pr-labels: pinned,work-in-progress,autorelease: pending
-          exempt-issue-labels: pinned,epic,help wanted,good first issue
+          exempt-pr-labels: "pinned,work-in-progress,autorelease: pending"
+          exempt-issue-labels: "pinned,epic,help wanted,good first issue"
           exempt-draft-pr: false
           stale-pr-message: >
             This pull request has had no activity for 45 days. Main has probably moved under
