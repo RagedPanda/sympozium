@@ -207,7 +207,13 @@ func runAgentLoop(ctx context.Context, p LLMProvider, tools []ToolDef) (string, 
 			log.Printf("llm_round [%d/%d]", round, maxToolIterations)
 		}
 
-		chatCtx, chatSpan := obs.startChatSpan(ctx, p.Name(), p.Model())
+		chatCtx, chatSpan := obs.startChatSpan(ctx,
+			genaiattrs.Provider(p.Name()),
+			// Deprecated gen_ai.system is emitted alongside gen_ai.provider.name
+			// for one release cycle so existing dashboards keep working.
+			genaiattrs.System(p.Name()),
+			genaiattrs.Model(p.Model()),
+		)
 		res, err := p.Chat(chatCtx)
 		if err != nil {
 			markSpanError(chatSpan, err)
@@ -242,16 +248,15 @@ func runAgentLoop(ctx context.Context, p LLMProvider, tools []ToolDef) (string, 
 			attribute.Int("gen_ai.usage.cached_input_tokens", res.CachedInputTokens),
 			genaiattrs.OutputTokens(res.OutputTokens),
 		)
-		// gen_ai.response.model: what the backend reports serving. Fall back to
-		// the requested model when the backend does not echo one (e.g. Bedrock
-		// Converse), so the attribute is always present for AI Observability.
-		respModel := res.ResponseModel
-		if respModel == "" {
-			respModel = p.Model()
+		// gen_ai.response.model is what the backend reports having served, which
+		// can differ from the requested model (aliases, routed models). It is set
+		// only when the backend reports one; the requested model is already on
+		// the span as gen_ai.request.model, so there is nothing to fall back to.
+		if res.ResponseModel != "" {
+			chatSpan.SetAttributes(genaiattrs.ResponseModel(res.ResponseModel))
 		}
-		chatSpan.SetAttributes(genaiattrs.ResponseModel(respModel))
 		if res.FinishReason != "" {
-			chatSpan.SetAttributes(attribute.String("gen_ai.response.finish_reasons", res.FinishReason))
+			chatSpan.SetAttributes(genaiattrs.FinishReasons(res.FinishReason))
 		}
 		chatSpan.SetStatus(codes.Ok, "")
 		chatSpan.End()

@@ -221,7 +221,6 @@ func (cr *ChannelRouter) handleInbound(ctx context.Context, event *eventbus.Even
 			attribute.String("sympozium.instance", msg.InstanceName),
 			attribute.String("sympozium.sender.id", msg.SenderID),
 			genaiattrs.Agent(msg.InstanceName),
-			genaiattrs.SpanKind(genaiattrs.SpanKindTask),
 		),
 	)
 	defer span.End()
@@ -380,7 +379,6 @@ func (cr *ChannelRouter) handleCompleted(ctx context.Context, event *eventbus.Ev
 			attribute.String("sympozium.agentrun.id", agentRunID),
 			attribute.String("sympozium.instance", instanceName),
 			genaiattrs.Agent(instanceName),
-			genaiattrs.SpanKind(genaiattrs.SpanKindTask),
 		),
 	)
 	defer span.End()

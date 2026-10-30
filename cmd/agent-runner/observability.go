@@ -136,66 +136,42 @@ func (o *agentObservability) initMetrics() {
 	}
 }
 
-// startRunSpan starts the top-level agent-run span with GenAI semantic
-// convention attributes alongside legacy sympozium.* attributes.
-func (o *agentObservability) startRunSpan(ctx context.Context, instance, namespace, model, taskSummary string) (context.Context, trace.Span) {
+func (o *agentObservability) startRunSpan(ctx context.Context, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if o == nil {
 		return ctx, trace.SpanFromContext(ctx)
-	}
-	attrs := []attribute.KeyValue{
-		// Legacy attributes (kept for backward compatibility)
-		attribute.String("instance", instance),
-		attribute.String("tenant.namespace", namespace),
-		attribute.String("model", model),
-		attribute.String("task.summary", taskSummary),
-		// GenAI semantic conventions
-		genaiattrs.Agent(instance),
-		genaiattrs.Model(model),
-		genaiattrs.SpanKind(genaiattrs.SpanKindTask),
 	}
 	return o.tracer.Start(ctx, "sympozium.agent.run", trace.WithAttributes(attrs...))
 }
 
-// startChatSpan starts a gen_ai.chat span with GenAI semantic convention
-// attributes for the LLM call. gen_ai.system is emitted alongside
-// gen_ai.provider.name for one release cycle (back-compat). System instructions
-// are NOT attached here — they are set once on the run span (see startRunSpan
-// callers) rather than duplicated on every per-round chat span.
-func (o *agentObservability) startChatSpan(ctx context.Context, provider, model string) (context.Context, trace.Span) {
+// recordSystemInstructions attaches gen_ai.system_instructions to span. The
+// system prompt is message content, not metadata: it is large and may carry
+// sensitive text, so it is recorded only when the operator has opted in with
+// OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true and is otherwise
+// never emitted. Call it once on the run span, not on per-round chat spans.
+func recordSystemInstructions(span trace.Span, systemPrompt string) {
+	if span == nil || systemPrompt == "" || !genaiattrs.CaptureMessageContent() {
+		return
+	}
+	span.SetAttributes(genaiattrs.SystemInstructions(systemPrompt))
+}
+
+func (o *agentObservability) startChatSpan(ctx context.Context, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if o == nil {
 		return ctx, trace.SpanFromContext(ctx)
-	}
-	attrs := []attribute.KeyValue{
-		genaiattrs.Provider(provider),
-		genaiattrs.System(provider),
-		genaiattrs.Model(model),
 	}
 	return o.tracer.Start(ctx, "gen_ai.chat", trace.WithAttributes(attrs...))
 }
 
-// startToolSpan starts a gen_ai.execute_tool span with traceloop.span.kind=tool.
-func (o *agentObservability) startToolSpan(ctx context.Context, toolName, callID string) (context.Context, trace.Span) {
+func (o *agentObservability) startToolSpan(ctx context.Context, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if o == nil {
 		return ctx, trace.SpanFromContext(ctx)
-	}
-	attrs := []attribute.KeyValue{
-		genaiattrs.ToolName(toolName),
-		genaiattrs.ToolCallID(callID),
-		genaiattrs.SpanKind(genaiattrs.SpanKindTool),
 	}
 	return o.tracer.Start(ctx, "gen_ai.execute_tool", trace.WithAttributes(attrs...))
 }
 
-// startSkillSpan starts a sympozium.skill.exec span with traceloop.span.kind=tool.
-func (o *agentObservability) startSkillSpan(ctx context.Context, skillName, sidecarContainer, rbacScope string) (context.Context, trace.Span) {
+func (o *agentObservability) startSkillSpan(ctx context.Context, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if o == nil {
 		return ctx, trace.SpanFromContext(ctx)
-	}
-	attrs := []attribute.KeyValue{
-		attribute.String("skill.name", skillName),
-		attribute.String("sidecar.container", sidecarContainer),
-		attribute.String("rbac.scope", rbacScope),
-		genaiattrs.SpanKind(genaiattrs.SpanKindTool),
 	}
 	return o.tracer.Start(ctx, "sympozium.skill.exec", trace.WithAttributes(attrs...))
 }

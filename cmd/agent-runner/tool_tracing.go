@@ -8,19 +8,24 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+
+	"github.com/sympozium-ai/sympozium/pkg/genaiattrs"
 )
 
 func executeToolCallWithTelemetry(ctx context.Context, name, argsJSON, callID string) string {
 	start := time.Now()
-	toolCtx, toolSpan := obs.startToolSpan(ctx, name, callID)
+	toolCtx, toolSpan := obs.startToolSpan(ctx,
+		genaiattrs.ToolName(name),
+		genaiattrs.ToolCallID(callID),
+	)
 
 	var result string
 	if name == ToolExecuteCommand {
 		skillStart := time.Now()
 		skillCtx, skillSpan := obs.startSkillSpan(toolCtx,
-			"command-executor",
-			"tool-executor",
-			"namespace",
+			attribute.String("skill.name", "command-executor"),
+			attribute.String("sidecar.container", "tool-executor"),
+			attribute.String("rbac.scope", "namespace"),
 		)
 		result = executeToolCall(skillCtx, name, argsJSON)
 		if strings.HasPrefix(result, "Error:") {

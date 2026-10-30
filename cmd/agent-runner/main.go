@@ -503,7 +503,14 @@ func main() {
 		log.Println("TRACEPARENT env var not set")
 	}
 
-	ctx, runSpan := obs.startRunSpan(ctx, getEnv("INSTANCE_NAME", ""), getEnv("AGENT_NAMESPACE", ""), modelName, truncate(task, 200))
+	ctx, runSpan := obs.startRunSpan(ctx,
+		attribute.String("instance", getEnv("INSTANCE_NAME", "")),
+		attribute.String("tenant.namespace", getEnv("AGENT_NAMESPACE", "")),
+		attribute.String("model", modelName),
+		attribute.String("task.summary", truncate(task, 200)),
+		genaiattrs.Agent(getEnv("INSTANCE_NAME", "")),
+		genaiattrs.Model(modelName),
+	)
 	writeTraceContextMetadata(ctx)
 	detailedLog.LogAgent("span_start", map[string]any{"task": task})
 	logWithTrace(ctx, "info", "agent run started", map[string]any{
@@ -626,8 +633,9 @@ func main() {
 
 	// Attach the fully-assembled system prompt once on the run span rather than
 	// on every per-round gen_ai.chat span (persona prompts are large; repeating
-	// them per round bloats span payload).
-	runSpan.SetAttributes(genaiattrs.SystemInstructions(systemPrompt))
+	// them per round bloats span payload). Opt-in only: see
+	// recordSystemInstructions.
+	recordSystemInstructions(runSpan, systemPrompt)
 
 	start := time.Now()
 
