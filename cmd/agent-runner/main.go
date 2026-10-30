@@ -992,17 +992,19 @@ func buildRelationshipContext(relJSON string) string {
 		return ""
 	}
 
-	var delegations, supervisions []rel
+	var delegations, sequentials, supervisions []rel
 	for _, r := range rels {
 		switch r.Type {
 		case "delegation":
 			delegations = append(delegations, r)
+		case "sequential":
+			sequentials = append(sequentials, r)
 		case "supervision":
 			supervisions = append(supervisions, r)
 		}
 	}
 
-	if len(delegations) == 0 && len(supervisions) == 0 {
+	if len(delegations) == 0 && len(sequentials) == 0 && len(supervisions) == 0 {
 		return ""
 	}
 
@@ -1028,6 +1030,24 @@ func buildRelationshipContext(relJSON string) string {
 		sb.WriteString("the persona name (e.g. ")
 		sb.WriteString(fmt.Sprintf("%q", delegations[0].Target))
 		sb.WriteString(") and a clear `task` description with all necessary context.\n")
+	}
+
+	if len(sequentials) > 0 {
+		// A sequential edge hands the work on once this persona's part is
+		// done; the same tool carries it, so the model is told it exists.
+		sb.WriteString("\nWhen your part of the work is complete, hand it on to the next team member ")
+		sb.WriteString("with the `delegate_to_persona` tool:\n\n")
+		for _, q := range sequentials {
+			label := q.Target
+			if q.DisplayName != "" {
+				label = fmt.Sprintf("%s (%s)", q.DisplayName, q.Target)
+			}
+			sb.WriteString(fmt.Sprintf("- **%s**", label))
+			if q.Condition != "" {
+				sb.WriteString(fmt.Sprintf(" — %s", q.Condition))
+			}
+			sb.WriteString("\n")
+		}
 	}
 
 	if len(supervisions) > 0 {
