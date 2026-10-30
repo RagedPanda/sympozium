@@ -22,6 +22,7 @@ import (
 	"github.com/sympozium-ai/sympozium/internal/eventbus"
 	"github.com/sympozium-ai/sympozium/internal/ipc"
 	"github.com/sympozium-ai/sympozium/internal/sessionkey"
+	"github.com/sympozium-ai/sympozium/pkg/genaiattrs"
 )
 
 var routerTracer = otel.Tracer("sympozium.ai/channel-router")
@@ -219,6 +220,8 @@ func (cr *ChannelRouter) handleInbound(ctx context.Context, event *eventbus.Even
 			attribute.String("sympozium.channel", msg.Channel),
 			attribute.String("sympozium.instance", msg.InstanceName),
 			attribute.String("sympozium.sender.id", msg.SenderID),
+			genaiattrs.Agent(msg.InstanceName),
+			genaiattrs.SpanKind(genaiattrs.SpanKindTask),
 		),
 	)
 	defer span.End()
@@ -376,6 +379,8 @@ func (cr *ChannelRouter) handleCompleted(ctx context.Context, event *eventbus.Ev
 		trace.WithAttributes(
 			attribute.String("sympozium.agentrun.id", agentRunID),
 			attribute.String("sympozium.instance", instanceName),
+			genaiattrs.Agent(instanceName),
+			genaiattrs.SpanKind(genaiattrs.SpanKindTask),
 		),
 	)
 	defer span.End()
